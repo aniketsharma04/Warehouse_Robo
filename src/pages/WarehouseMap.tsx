@@ -1,14 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useStore, Bot } from '@/store/useStore';
-import { Upload, X, Info } from 'lucide-react';
+import { Upload, X, Info, Box, Grid2X2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Warehouse3D } from '@/components/warehouse/Warehouse3D';
 
 export default function WarehouseMap() {
   const { bots, updateAllBots } = useStore();
   const [svgContent, setSvgContent] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Update bot positions every 2 seconds
@@ -58,25 +60,50 @@ export default function WarehouseMap() {
             </p>
           </div>
           <div className="flex gap-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".svg"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload SVG Layout
-            </Button>
-            {svgContent && (
-              <Button variant="ghost" onClick={clearSvg}>
-                <X className="w-4 h-4 mr-2" />
-                Clear
+            {/* View Toggle */}
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              <Button
+                variant={viewMode === '2d' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('2d')}
+                className="rounded-none"
+              >
+                <Grid2X2 className="w-4 h-4 mr-2" />
+                2D
               </Button>
+              <Button
+                variant={viewMode === '3d' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('3d')}
+                className="rounded-none"
+              >
+                <Box className="w-4 h-4 mr-2" />
+                3D
+              </Button>
+            </div>
+            {viewMode === '2d' && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".svg"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload SVG
+                </Button>
+                {svgContent && (
+                  <Button variant="ghost" onClick={clearSvg}>
+                    <X className="w-4 h-4 mr-2" />
+                    Clear
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -85,10 +112,13 @@ export default function WarehouseMap() {
         <div className="bg-primary/10 rounded-xl p-4 border border-primary/20 flex items-start gap-3">
           <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm text-foreground font-medium">Bonus Feature</p>
+            <p className="text-sm text-foreground font-medium">
+              {viewMode === '3d' ? 'Three.js 3D Visualization' : 'Bonus Feature - SVG Map'}
+            </p>
             <p className="text-sm text-muted-foreground">
-              Upload a warehouse layout SVG file to see bots positioned on your actual floor plan.
-              Bots are shown as colored circles that move randomly to simulate movement.
+              {viewMode === '3d' 
+                ? 'Interactive 3D warehouse with animated bot movement. Use mouse to orbit, scroll to zoom.'
+                : 'Upload a warehouse layout SVG file to see bots positioned on your actual floor plan.'}
             </p>
           </div>
         </div>
@@ -108,55 +138,68 @@ export default function WarehouseMap() {
 
         {/* Map container */}
         <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div
-            className="relative w-full aspect-[16/9] bg-secondary/30"
-            style={{ minHeight: '500px' }}
-          >
-            {/* SVG background */}
-            {svgContent ? (
-              <div
-                className="absolute inset-0 p-4"
-                dangerouslySetInnerHTML={{ __html: svgContent }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
+          {viewMode === '3d' ? (
+            <Suspense fallback={
+              <div className="w-full aspect-[16/9] flex items-center justify-center bg-secondary/30" style={{ minHeight: '500px' }}>
                 <div className="text-center">
-                  <div className="w-16 h-16 rounded-full bg-secondary mx-auto mb-4 flex items-center justify-center">
-                    <Upload className="w-8 h-8 text-muted-foreground" />
-                  </div>
-                  <p className="text-muted-foreground mb-2">No warehouse layout uploaded</p>
-                  <p className="text-sm text-muted-foreground">
-                    Upload an SVG file or view bots on the default grid below
-                  </p>
+                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-muted-foreground">Loading 3D Scene...</p>
                 </div>
               </div>
-            )}
+            }>
+              <Warehouse3D bots={bots} />
+            </Suspense>
+          ) : (
+            <div
+              className="relative w-full aspect-[16/9] bg-secondary/30"
+              style={{ minHeight: '500px' }}
+            >
+              {/* SVG background */}
+              {svgContent ? (
+                <div
+                  className="absolute inset-0 p-4"
+                  dangerouslySetInnerHTML={{ __html: svgContent }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-16 h-16 rounded-full bg-secondary mx-auto mb-4 flex items-center justify-center">
+                      <Upload className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground mb-2">No warehouse layout uploaded</p>
+                    <p className="text-sm text-muted-foreground">
+                      Upload an SVG file or view bots on the default grid below
+                    </p>
+                  </div>
+                </div>
+              )}
 
-            {/* Default grid when no SVG */}
-            {!svgContent && (
-              <div className="absolute inset-4">
-                {/* Grid lines */}
-                <svg className="absolute inset-0 w-full h-full opacity-20">
-                  <defs>
-                    <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-                      <path d="M 50 0 L 0 0 0 50" fill="none" stroke="currentColor" strokeWidth="0.5" />
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#grid)" />
-                </svg>
-              </div>
-            )}
+              {/* Default grid when no SVG */}
+              {!svgContent && (
+                <div className="absolute inset-4">
+                  {/* Grid lines */}
+                  <svg className="absolute inset-0 w-full h-full opacity-20">
+                    <defs>
+                      <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                        <path d="M 50 0 L 0 0 0 50" fill="none" stroke="currentColor" strokeWidth="0.5" />
+                      </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#grid)" />
+                  </svg>
+                </div>
+              )}
 
-            {/* Bot positions */}
-            {bots.map((bot) => (
-              <BotMarker key={bot.id} bot={bot} statusColors={statusColors} />
-            ))}
-          </div>
+              {/* Bot positions */}
+              {bots.map((bot) => (
+                <BotMarker key={bot.id} bot={bot} statusColors={statusColors} />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Bot list */}
